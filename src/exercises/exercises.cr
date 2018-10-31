@@ -2,22 +2,34 @@ require "../graph/graph"
 
 module Exercises
   extend self
-  EXERCISES = ["1_1", "1_2"]
+  include Graph
+  EXERCISES = ["0", "1_2", "1_3"]
 
-  def exercise1_1(filename : String?, gzipped : Bool)
-    puts "1.1"
+  def exercise0(filename : String?)
+    raise ArgumentError.new if filename.nil?
+    graph = DefaultGraph.from_filename(filename)
+    "Nodes with max out degree (#{graph.max_out_degree}): #{graph.nodes_with_max_out_degree}\n" +
+      "Nodes with min in degree (#{graph.min_in_degree}): #{graph.nodes_with_min_in_degree}"
   end
 
-  def exercise1_2(filename : String?, gzipped : Bool)
-    puts "1.2"
+  def exercise1_2(filename : String?)
+    raise ArgumentError.new if filename.nil?
+    graph = DefaultGraph.from_filename(filename)
+    graph.metis_string
   end
 
-  def run(exercise : String?, filename : String?, gzipped : Bool)
+  def exercise1_3(filename : String?)
+    raise ArgumentError.new if filename.nil?
+    graph = DefaultGraph.from_filename(filename)
+    graph.number_of_triangles
+  end
+
+  def run(exercise : String?, filename : String?)
     {% begin %}
       case exercise
       {% for e in EXERCISES %}
         when {{e}}
-          exercise{{e.id}} filename, gzipped
+          puts exercise{{e.id}} filename
       {% end %}
       else
         STDERR.puts "ERROR: #{exercise} is not a valid exercise."
