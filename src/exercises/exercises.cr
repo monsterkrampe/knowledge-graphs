@@ -5,31 +5,34 @@ module Exercises
   include Graph
   EXERCISES = ["0", "1_2", "1_3"]
 
-  def exercise0(filename : String?)
-    raise ArgumentError.new if filename.nil?
-    graph = DefaultGraph.from_filename(filename)
+  def exercise0(graph : AGraph)
     "Nodes with max out degree (#{graph.max_out_degree}): #{graph.nodes_with_max_out_degree}\n" +
       "Nodes with min in degree (#{graph.min_in_degree}): #{graph.nodes_with_min_in_degree}"
   end
 
-  def exercise1_2(filename : String?)
-    raise ArgumentError.new if filename.nil?
-    graph = DefaultGraph.from_filename(filename)
+  def exercise1_2(graph : AGraph)
     graph.metis_string
   end
 
-  def exercise1_3(filename : String?)
-    raise ArgumentError.new if filename.nil?
-    graph = DefaultGraph.from_filename(filename)
+  def exercise1_3(graph : AGraph)
     graph.number_of_triangles
   end
 
-  def run(exercise : String?, filename : String?)
+  def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false) : AGraph
+    raise ArgumentError.new if filename.nil?
+    if n_tuples
+      RDF_Graph.from_filename(filename, gzipped)
+    else
+      DefaultGraph.from_filename(filename, gzipped)
+    end
+  end
+
+  def run(exercise : String?, filename : String?, gzipped : Bool, n_tuples : Bool)
     {% begin %}
       case exercise
       {% for e in EXERCISES %}
         when {{e}}
-          puts exercise{{e.id}} filename
+          puts exercise{{e.id}} create_graph(filename, gzipped, n_tuples)
       {% end %}
       else
         STDERR.puts "ERROR: #{exercise} is not a valid exercise."

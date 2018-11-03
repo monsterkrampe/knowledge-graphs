@@ -1,3 +1,5 @@
+require "gzip"
+
 module Graph
   abstract class AGraph(NodeType)
     def initialize
@@ -8,9 +10,9 @@ module Graph
     def metis_string : String
       lines = ["#{number_of_nodes} #{number_of_edges}"]
       @edges.each do |source, targets|
-        lines << "#{source} #{targets.to_a.sort.join(' ')}"
+        lines << (targets.size > 0 ? "#{source} #{targets.to_a.sort.join(' ')}" : source.to_s)
       end
-      lines.join '\n'
+      (lines.join '\n') + '\n'
     end
 
     def number_of_nodes
@@ -116,8 +118,13 @@ module Graph
   end
 
   class DefaultGraph < AGraph(Int32)
-    def self.from_filename(filename : String) : DefaultGraph
-      lines = File.read(filename).split '\n'
+    def self.from_filename(filename : String, gzipped : Bool) : DefaultGraph
+      if gzipped
+        content = Gzip::Reader.open(filename) { |gzip_file| gzip_file.gets_to_end }
+      else
+        content = File.read(filename)
+      end
+      lines = content.split '\n'
       number_of_nodes = lines.first.to_i
 
       graph = DefaultGraph.new
@@ -127,6 +134,29 @@ module Graph
 
       lines[1...-1].each do |line|
         graph.add_edge(*Tuple(Int32, Int32).from(line.split(' ').map(&.to_i)))
+      end
+
+      graph
+    end
+  end
+
+  class RDF_Graph < AGraph(String)
+    def self.from_filename(filename : String, gzipped : Bool) : RDF_Graph
+      if gzipped
+        file = Gzip::Reader.new(filename)
+      else
+        file = File.new(filename)
+      end
+
+      graph = RDF_Graph.new
+
+      file.each_line do |line|
+        line_data = line.split ' '
+        node1 = line_data[0]
+        node2 = line_data[2]
+        graph.add_node(node1)
+        graph.add_node(node2)
+        graph.add_edge(node1, node2)
       end
 
       graph
