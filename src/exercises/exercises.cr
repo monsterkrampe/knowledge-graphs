@@ -3,7 +3,7 @@ require "../graph/graph"
 module Exercises
   extend self
   include Graph
-  EXERCISES = ["0", "1_2", "1_3"]
+  EXERCISES = ["0", "1_2", "1_3", "2_2", "2_3"]
 
   def exercise0(graph : AGraph)
     "Nodes with max out degree (#{graph.max_out_degree}): #{graph.nodes_with_max_out_degree}\n" +
@@ -16,6 +16,17 @@ module Exercises
 
   def exercise1_3(graph : AGraph)
     graph.number_of_triangles
+  end
+
+  def exercise2_2(graph : AGraph)
+    puts "Graph built"
+    graph.bipartite?
+  end
+
+  def exercise2_3(graph : AGraph)
+    raise ArgumentError.new unless graph.is_a? RDF_Graph
+    puts "Graph built"
+    graph.connected_component_containing("<http://dblp.uni-trier.de/pers/s/Studer:Rudi>").number_of_nodes
   end
 
   def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false) : AGraph
