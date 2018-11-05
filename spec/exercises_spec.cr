@@ -142,13 +142,26 @@ describe Exercises do
       graph = Exercises.create_graph("./test-data/dblp/authorship-snippet.nt.gz", true, true)
       Exercises.exercise2_2(graph).should eq true
     end
-    pending "works for authors" do
+    it "works for authors" do
       graph = Exercises.create_graph("./test-data/dblp/authorship.nt.gz", true, true)
       Exercises.exercise2_2(graph).should eq true
     end
-    pending "works for coauthors" do
+    it "works for coauthors" do
       graph = Exercises.create_graph("./test-data/dblp/coauthors.nt.gz", true, true)
       Exercises.exercise2_2(graph).should eq false
+    end
+  end
+
+  describe "exercise2_3" do
+    it "works for authors (snippet)" do
+      graph = Exercises.create_graph("./test-data/dblp/authorship-snippet.nt.gz", true, true)
+      # number of edges in subgraph
+      Exercises.exercise2_3(graph).should eq 414
+    end
+    it "works for coauthors" do
+      graph = Exercises.create_graph("./test-data/dblp/coauthors.nt.gz", true, true)
+      # number of edges in subgraph
+      Exercises.exercise2_3(graph).should eq 20810017
     end
   end
 end

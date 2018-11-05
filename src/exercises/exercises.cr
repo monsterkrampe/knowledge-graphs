@@ -26,7 +26,7 @@ module Exercises
   def exercise2_3(graph : AGraph)
     raise ArgumentError.new unless graph.is_a? RDF_Graph
     puts "Graph built"
-    graph.connected_component_containing("<http://dblp.uni-trier.de/pers/s/Studer:Rudi>").number_of_nodes
+    graph.connected_component_containing("<http://dblp.uni-trier.de/pers/s/Studer:Rudi>").number_of_edges
   end
 
   def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false) : AGraph

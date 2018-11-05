@@ -1,11 +1,11 @@
 require "gzip"
 
 module Graph
-  abstract class AGraph(NodeType, EdgeType)
+  abstract class AGraph
     getter edges
 
     def initialize
-      @edges = {} of NodeType => Array(EdgeType)
+      @edges = {} of Int32 => Array(Int32)
     end
 
     def metis_string : String
@@ -28,26 +28,24 @@ module Graph
       @edges.values.map(&.size).sum
     end
 
-    def add_node(node : NodeType)
-      @edges[node] = Array(EdgeType).new unless @edges.has_key? node
+    def add_node(node : Int32)
+      @edges[node] = Array(Int32).new unless @edges.has_key? node
     end
 
     def add_edge(node1, node2)
-      @edges[node1] << node2 unless @edges[node1].includes? node2
+      @edges[node1] << node2
     end
 
-    def out_degree(node : NodeType) : Int
+    def out_degree(node : Int32) : Int
       @edges[node].size
     end
 
-    def in_degree(node : NodeType) : Int
+    def in_degree(node : Int32) : Int
       @edges.values.sum { |value| (value.includes? node) ? 1 : 0}
     end
 
-    abstract def map_edge_to_node(edge : EdgeType) : NodeType
-
-    def get_neighbors(node : NodeType) : Array(NodeType)
-      @edges[node].map { |edge| map_edge_to_node edge }
+    def get_neighbors(node : Int32) : Array(Int32)
+      @edges[node]
     end
 
     def max_out_degree : Int
@@ -58,12 +56,12 @@ module Graph
       nodes.map { |node| in_degree(node) } .min
     end
 
-    def nodes_with_max_out_degree : Array(NodeType)
+    def nodes_with_max_out_degree : Array(Int32)
       max_out_degree = self.max_out_degree
       nodes.select { |node| out_degree(node) == max_out_degree }
     end
 
-    def nodes_with_min_in_degree : Array(NodeType)
+    def nodes_with_min_in_degree : Array(Int32)
       min_in_degree = self.min_in_degree
       nodes.select { |node| in_degree(node) == min_in_degree }
     end
@@ -81,15 +79,18 @@ module Graph
     end
 
     def bipartite? : Bool
-      nodes = self.nodes
-      colors = {} of NodeType => Bool
-      while nodes.size > 0
-        puts nodes.size
-        node = nodes.pop
+      node_taken = Array.new(self.nodes.size, false)
+      colors = {} of Int32 => Bool
+      node = node_taken.index(false)
+      node_taken[node] = true unless node.nil?
+      while !node.nil?
+        puts "Node"
+        puts node
         neighbors = get_neighbors(node)
 
-        uncolored_neighbors = neighbors.select { |n| !colors.keys.includes? n}
-        colored_neighbors = neighbors.select { |n| colors.keys.includes? n}
+        partition = neighbors.partition { |n| colors.has_key? n }
+        uncolored_neighbors = partition.last
+        colored_neighbors = partition.first
 
         if colored_neighbors.size > 0
           next_color = !colors[colored_neighbors.first]
@@ -100,52 +101,56 @@ module Graph
         next_color = !next_color
 
         while uncolored_neighbors.size > 0
+          puts "uncolored_neighbors"
           puts uncolored_neighbors.size
-          neighbors = Array(NodeType).new
+          neighbors = Array(Int32).new
 
           return false if colored_neighbors.any? { |cn| colors[cn] != next_color }
 
           uncolored_neighbors.each do |un|
-            nodes.delete un
-            neighbors += get_neighbors un
+            node_taken[un] = true
+            neighbors.concat(get_neighbors un)
             colors[un] = next_color
           end
-          neighbors.uniq!
 
           next_color = !next_color
 
-          uncolored_neighbors = neighbors.select { |n| !colors.keys.includes? n}
-          colored_neighbors = neighbors.select { |n| colors.keys.includes? n}
+          partition = neighbors.uniq.partition { |n| colors.has_key? n }
+          uncolored_neighbors = partition.last
+          colored_neighbors = partition.first
         end
 
         return false if colored_neighbors.any? { |cn| colors[cn] != next_color }
+
+        node = node_taken.index(false, node + 1)
+        node_taken[node] = true unless node.nil?
       end
 
       return true
     end
 
-    def connected_component_containing(node : NodeType) : AGraph
+    def connected_component_containing(node : Int32) : AGraph
       target_graph = self.class.new
-      nodes = self.nodes
+      node_taken = Array.new(self.nodes.size, false)
       neighbors = [node]
       while neighbors.size > 0
-        new_neighbors = [] of NodeType
+        new_neighbors = [] of Int32
         neighbors.each do |n|
-          nodes.delete n
+          node_taken[n] = true
           target_graph.add_node n
           @edges[n].each do |e|
             target_graph.add_edge n, e
           end
-          new_neighbors += get_neighbors n
+          new_neighbors.concat(get_neighbors n)
         end
-        neighbors = new_neighbors.uniq & nodes
+        neighbors = new_neighbors.uniq.select { |node| !node_taken[node]}
       end
 
       target_graph
     end
   end
 
-  class DefaultGraph < AGraph(Int32, Int32)
+  class DefaultGraph < AGraph
     def self.from_filename(filename : String, gzipped : Bool) : DefaultGraph
       if gzipped
         content = Gzip::Reader.open(filename) { |gzip_file| gzip_file.gets_to_end }
@@ -166,13 +171,16 @@ module Graph
 
       graph
     end
-
-    def map_edge_to_node(edge : EdgeType) : NodeType
-      edge
-    end
   end
 
-  class RDF_Graph < AGraph(String, Tuple(String, String))
+  class RDF_Graph < AGraph
+    property map_name_to_number = {} of String => Int32
+
+    def initialize
+      super
+      @map = {} of String => Int32
+    end
+
     def self.from_filename(filename : String, gzipped : Bool) : RDF_Graph
       if gzipped
         file = Gzip::Reader.new(filename)
@@ -180,24 +188,43 @@ module Graph
         file = File.new(filename)
       end
 
+      map_name_to_number = {} of String => Int32
+      next_number = 0
       graph = RDF_Graph.new
 
       file.each_line do |line|
         line_data = line.split ' '
-        node1 = line_data[0]
-        node2 = line_data[2]
+
+        if map_name_to_number.has_key? line_data[0]
+          node1 = map_name_to_number[line_data[0]]
+        else
+          node1 = next_number
+          map_name_to_number[line_data[0]] = node1
+          next_number += 1
+        end
+
+        if map_name_to_number.has_key? line_data[2]
+          node2 = map_name_to_number[line_data[2]]
+        else
+          node2 = next_number
+          map_name_to_number[line_data[2]] = node2
+          next_number += 1
+        end
+
         graph.add_node(node1)
         graph.add_node(node2)
-        graph.add_edge(node1, {node2, line_data[1]})
+        graph.add_edge(node1, node2)
       end
 
       file.close
 
+      graph.map_name_to_number = map_name_to_number
+
       graph
     end
 
-    def map_edge_to_node(edge : EdgeType) : NodeType
-      edge.first
+    def connected_component_containing(node : String) : AGraph
+      super(map_name_to_number[node])
     end
   end
 end
