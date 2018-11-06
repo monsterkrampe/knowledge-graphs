@@ -174,11 +174,11 @@ module Graph
   end
 
   class RDF_Graph < AGraph
-    property map_name_to_number = {} of String => Int32
-
     def initialize
       super
-      @map = {} of String => Int32
+      @next_number = 0
+      @map_name_to_number = {} of String => Int32
+      @map_edge_to_labels = {} of String => Array(Tuple(Int32, Int32))
     end
 
     def self.from_filename(filename : String, gzipped : Bool) : RDF_Graph
@@ -188,43 +188,43 @@ module Graph
         file = File.new(filename)
       end
 
-      map_name_to_number = {} of String => Int32
-      next_number = 0
       graph = RDF_Graph.new
 
       file.each_line do |line|
         line_data = line.split ' '
 
-        if map_name_to_number.has_key? line_data[0]
-          node1 = map_name_to_number[line_data[0]]
-        else
-          node1 = next_number
-          map_name_to_number[line_data[0]] = node1
-          next_number += 1
-        end
-
-        if map_name_to_number.has_key? line_data[2]
-          node2 = map_name_to_number[line_data[2]]
-        else
-          node2 = next_number
-          map_name_to_number[line_data[2]] = node2
-          next_number += 1
-        end
-
-        graph.add_node(node1)
-        graph.add_node(node2)
-        graph.add_edge(node1, node2)
+        node1 = graph.add_node_using_label(line_data[0])
+        node2 = graph.add_node_using_label(line_data[2])
+        graph.add_edge_with_label(node1, node2, line_data[1])
       end
 
       file.close
 
-      graph.map_name_to_number = map_name_to_number
-
       graph
     end
 
+    def add_node_using_label(label : String)
+      if @map_name_to_number.has_key? label
+        node = @map_name_to_number[label]
+      else
+        node = @next_number
+        @map_name_to_number[label] = node
+        @next_number += 1
+      end
+
+      add_node node
+      node
+    end
+
+    def add_edge_with_label(node1 : Int32, node2 : Int32, label : String)
+      add_edge(node1, node2)
+
+      @map_edge_to_labels[label] = [] of Tuple(Int32, Int32) unless @map_edge_to_labels.has_key?(label)
+      @map_edge_to_labels[label] << {node1, node2}
+    end
+
     def connected_component_containing(node : String) : AGraph
-      super(map_name_to_number[node])
+      super(@map_name_to_number[node])
     end
   end
 end
