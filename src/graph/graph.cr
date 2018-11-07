@@ -188,9 +188,25 @@ module Graph
         file = File.new(filename)
       end
 
-      graph = RDF_Graph.new
+      graph = self.from_io file
 
-      file.each_line do |line|
+      file.close
+
+      graph
+    end
+
+    def self.from_io(io : IO)
+      self.from_io_or_contents io
+    end
+
+    def self.from_contents(contents : String)
+      self.from_io_or_contents contents.strip
+    end
+
+    private def self.from_io_or_contents(io_or_contents : IO | String)
+      graph = self.new
+
+      io_or_contents.each_line do |line|
         line_data = line.split ' '
 
         node1 = graph.add_node_using_label(line_data[0])
@@ -198,9 +214,33 @@ module Graph
         graph.add_edge_with_label(node1, node2, line_data[1])
       end
 
-      file.close
-
       graph
+    end
+
+    def get_label_for_node(node : Int32)
+      @map_name_to_number.key_for node
+    end
+
+    def get_labels_for_edge(edge : Tuple(Int32, Int32)) : Array(String)
+      labels = [] of String
+      @map_edge_to_labels.each do |key, val|
+        labels << key if val.includes? edge
+      end
+      labels
+    end
+
+    def get_node_labels
+      @map_name_to_number.keys
+    end
+
+    def to_triples : Array(Tuple(String, String, String))
+      triples = [] of Tuple(String, String, String)
+      @map_edge_to_labels.each do |edge_label, edges|
+        edges.each do |edge|
+          triples << {get_label_for_node(edge.first), edge_label, get_label_for_node(edge.last)}
+        end
+      end
+      triples
     end
 
     def add_node_using_label(label : String)
@@ -225,6 +265,35 @@ module Graph
 
     def connected_component_containing(node : String) : AGraph
       super(@map_name_to_number[node])
+    end
+
+    def merge(other : RDF_Graph)
+      other.to_triples.each do |triple|
+        node1 = add_node_using_label(triple[0])
+        node2 = add_node_using_label(triple[2])
+        add_edge_with_label(node1, node2, triple[1])
+      end
+    end
+  end
+
+  class DBLP_Graph < RDF_Graph
+    def authors
+      get_node_labels.select { |label| label.includes? "/pers" }
+    end
+
+    def publications
+      get_node_labels.select { |label| label.includes? "/rec" }
+    end
+
+    def publications_with_only_author(author : String)
+      author_id = @map_name_to_number[author]
+
+      publications.select do |pub|
+        pub_id = @map_name_to_number[pub]
+        authors : Array(Int32) = edges[pub_id]
+
+        authors.includes?(author_id) && authors.flat_map{ |a| get_labels_for_edge({pub_id, a}) }.count(&.includes? "authoredBy") == 1
+      end
     end
   end
 end
