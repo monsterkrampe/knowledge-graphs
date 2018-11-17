@@ -66,16 +66,20 @@ module Graph
       nodes.select { |node| in_degree(node) == min_in_degree }
     end
 
-    def number_of_triangles : Int
+    def number_of_triangles(edges) : Int
       number_of_triangles = 0
       nodes.each do |node|
-        @edges[node].each do |second_node|
-          @edges[second_node].each do |third_node|
-            number_of_triangles += 1 if @edges[third_node].includes? node
+        edges[node].each do |second_node|
+          edges[second_node].each do |third_node|
+            number_of_triangles += 1 if edges[third_node].includes? node
           end
         end
       end
       number_of_triangles
+    end
+
+    def number_of_triangles : Int
+      number_of_triangles(@edges)
     end
 
     def bipartite? : Bool
@@ -178,7 +182,7 @@ module Graph
       super
       @next_number = 0
       @map_name_to_number = {} of String => Int32
-      @map_edge_to_labels = {} of String => Array(Tuple(Int32, Int32))
+      @map_label_to_edges = {} of String => Array(Tuple(Int32, Int32))
     end
 
     def self.from_filename(filename : String, gzipped : Bool) : RDF_Graph
@@ -223,7 +227,7 @@ module Graph
 
     def get_labels_for_edge(edge : Tuple(Int32, Int32)) : Array(String)
       labels = [] of String
-      @map_edge_to_labels.each do |key, val|
+      @map_label_to_edges.each do |key, val|
         labels << key if val.includes? edge
       end
       labels
@@ -235,7 +239,7 @@ module Graph
 
     def to_triples : Array(Tuple(String, String, String))
       triples = [] of Tuple(String, String, String)
-      @map_edge_to_labels.each do |edge_label, edges|
+      @map_label_to_edges.each do |edge_label, edges|
         edges.each do |edge|
           triples << {get_label_for_node(edge.first), edge_label, get_label_for_node(edge.last)}
         end
@@ -259,8 +263,8 @@ module Graph
     def add_edge_with_label(node1 : Int32, node2 : Int32, label : String)
       add_edge(node1, node2)
 
-      @map_edge_to_labels[label] = [] of Tuple(Int32, Int32) unless @map_edge_to_labels.has_key?(label)
-      @map_edge_to_labels[label] << {node1, node2}
+      @map_label_to_edges[label] = [] of Tuple(Int32, Int32) unless @map_label_to_edges.has_key?(label)
+      @map_label_to_edges[label] << {node1, node2}
     end
 
     def connected_component_containing(node : String) : AGraph
@@ -273,6 +277,17 @@ module Graph
         node2 = add_node_using_label(triple[2])
         add_edge_with_label(node1, node2, triple[1])
       end
+    end
+
+    def number_of_triangles_with_edge_label(label : String)
+      puts "filtering edges"
+      filtered_edges = {} of Int32 => Array(Int32)
+      nodes.each { |i| filtered_edges[i] = [] of Int32 }
+      @map_label_to_edges[label].each do |a, b|
+        filtered_edges[a] << b
+      end
+      puts "edges_filtered"
+      number_of_triangles(filtered_edges)
     end
   end
 

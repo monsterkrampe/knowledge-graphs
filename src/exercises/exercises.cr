@@ -4,7 +4,7 @@ require "../dblp_crawler/dblp_crawler"
 module Exercises
   extend self
   include Graph
-  EXERCISES_USING_LOCAL_FILE = ["0", "1_2", "1_3", "2_2", "2_3"]
+  EXERCISES_USING_LOCAL_FILE = ["0", "1_2", "1_3", "2_2", "2_3", "4_5"]
   EXERCISES_CRAWLING_WEB = ["3_4"]
 
   def exercise0(graph : AGraph)
@@ -46,6 +46,11 @@ module Exercises
     end
 
     graph.publications_with_only_author desired_author
+  end
+
+  def exercise4_5(graph : AGraph)
+    raise ArgumentError.new unless graph.is_a? RDF_Graph
+    graph.number_of_triangles_with_edge_label("<http://www.wikidata.org/prop/direct/P47>")
   end
 
   def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false) : AGraph
