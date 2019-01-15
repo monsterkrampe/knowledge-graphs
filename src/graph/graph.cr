@@ -225,6 +225,16 @@ module Graph
       @map_name_to_number.key_for node
     end
 
+    # Form:
+    # node, "label"
+    def node_label_string
+      String.build do |str|
+        nodes.each do |node|
+          str << "#{node}, \"#{get_label_for_node(node)}\"\n"
+        end
+      end
+    end
+
     def get_labels_for_edge(edge : Tuple(Int32, Int32)) : Array(String)
       labels = [] of String
       @map_label_to_edges.each do |key, val|
