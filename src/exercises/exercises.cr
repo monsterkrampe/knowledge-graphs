@@ -3,11 +3,13 @@ require "json"
 
 require "../graph/graph"
 require "../dblp_crawler/dblp_crawler"
+require "../linear_algebra/linear_algebra"
 
 module Exercises
   extend self
   include Graph
-  EXERCISES_USING_LOCAL_FILE = ["0", "1_2", "1_3", "2_2", "2_3", "4_5"]
+  include Linear_Algebra
+  EXERCISES_USING_LOCAL_FILE = ["0", "1_2", "1_3", "2_2", "2_3", "4_5", "12_3", "12_4"]
   EXERCISES_CRAWLING_WEB = ["3_4", "11_4"]
 
   def exercise0(graph : AGraph)
@@ -58,9 +60,10 @@ module Exercises
 
   def exercise11_4
     # query participants of any tournaments and corresponding winners
-    query = "SELECT ?pLabel ?wLabel WHERE {
+    query = "SELECT ?p ?pLabel ?w ?wLabel WHERE {
       ?t ^wdt:P1344 ?p ;
-        ^wdt:P2522 ?w .
+        ^wdt:P2522 ?w ;
+        wdt:P361*/wdt:P31 wd:Q19317 .
 
       FILTER(?p != ?w)
 
@@ -98,21 +101,63 @@ module Exercises
     "Success"
   end
 
-  def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false) : AGraph
+  def exercise12_3(graph : AGraph)
+    matrix = SparseMatrix.new(graph).transpose
+    vector = Vector.new(Array.new(graph.number_of_nodes, 1_f64 / graph.number_of_nodes))
+
+    puts graph.number_of_nodes
+
+    beta = 0.85_f64
+    number_of_nodes = graph.number_of_nodes
+
+    # use pagerank for some iterations
+    1000.times do
+      puts (matrix * vector * beta)[18]
+      puts (1 - beta) / number_of_nodes
+
+      vector = matrix * vector * beta + (1 - beta) / number_of_nodes
+
+      puts vector[18]
+    end
+
+    puts vector.size
+
+    # map indices to labels
+    mapped_to_labels = Vector.new(Array(Tuple(Float64, String)).new(number_of_nodes))
+    File.each_line("./output/11_4_labels") do |line|
+      whole_string, index, label = line.match(/(\d+), "(.*)"/).as(Regex::MatchData)
+
+      mapped_to_labels << {vector[index.to_i], label}
+    end
+
+    mapped_to_labels.sort_by!(&.first).reverse!
+
+    puts mapped_to_labels
+
+    mapped_to_labels.map_with_index { |tuple, index| "#{index + 1}. #{tuple.last}" } .join '\n'
+  end
+
+  def exercise12_4(graph : AGraph)
+    # TODO
+  end
+
+  def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false, metis : Bool = false) : AGraph
     raise ArgumentError.new if filename.nil?
     if n_tuples
       RDF_Graph.from_filename(filename, gzipped)
+    elsif metis
+      DefaultGraph.from_metis_file(filename)
     else
       DefaultGraph.from_filename(filename, gzipped)
     end
   end
 
-  def run(exercise : String?, filename : String?, gzipped : Bool, n_tuples : Bool)
+  def run(exercise : String?, filename : String?, gzipped : Bool, n_tuples : Bool, metis : Bool)
     {% begin %}
       case exercise
       {% for e in EXERCISES_USING_LOCAL_FILE %}
         when {{e}}
-          puts exercise{{e.id}} create_graph(filename, gzipped, n_tuples)
+          puts exercise{{e.id}} create_graph(filename, gzipped, n_tuples, metis)
       {% end %}
       {% for e in EXERCISES_CRAWLING_WEB %}
         when {{e}}

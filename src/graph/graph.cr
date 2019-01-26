@@ -161,7 +161,7 @@ module Graph
       else
         content = File.read(filename)
       end
-      lines = content.split '\n'
+      lines = content.strip.split '\n'
       number_of_nodes = lines.first.to_i
 
       graph = DefaultGraph.new
@@ -169,8 +169,26 @@ module Graph
         graph.add_node index
       end
 
-      lines[1...-1].each do |line|
+      lines[1..-1].each do |line|
         graph.add_edge(*Tuple(Int32, Int32).from(line.split(' ').map(&.to_i)))
+      end
+
+      graph
+    end
+
+    def self.from_metis_file(filename : String) : DefaultGraph
+      content = File.read(filename)
+      lines = content.strip.split '\n'
+
+      graph = DefaultGraph.new
+
+      lines[1..-1].each do |line|
+        numbers = line.split(' ')
+        source = numbers.first.to_i
+        graph.add_node source
+        numbers[1..-1].each do |target|
+          graph.add_edge(source, target.to_i)
+        end
       end
 
       graph
