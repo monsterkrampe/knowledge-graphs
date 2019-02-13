@@ -4,7 +4,8 @@ Solutions for Knowledge Graphs using crystal.
 
 ## Licenses
 
-The `test-data` and the license description below was taken from https://github.com/knowsys/Course-Knowledge-Graphs
+The `test-data` and the license description below were taken from  
+https://github.com/knowsys/Course-Knowledge-Graphs
 
 Unless otherwise specified, the data files under `test-data` are
 released as [CC-0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
