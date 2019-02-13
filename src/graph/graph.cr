@@ -16,6 +16,42 @@ module Graph
       (lines.join '\n') + '\n'
     end
 
+    def shortest_paths(s : Int32)
+      num_nodes = nodes.size
+      # paths = Hash(Int32, Array(Array(Int32))?).new { nil }
+      paths = Array(Array(Array(Int32))?).new(num_nodes) {nil}
+
+      newly_added = Set(Int32).new
+
+      paths[s] = [[s]]
+
+      @edges[s].each do |t|
+        paths[t] = [[s, t]]
+        newly_added << t
+      end
+
+      while newly_added.size > 0
+        added_before = newly_added
+        newly_added = Set(Int32).new(num_nodes)
+
+        added_before.each do |t|
+          next unless @edges.has_key?(t)
+
+          @edges[t].each do |real_target|
+            if paths[real_target].nil?
+              paths[real_target] = paths[t].as(Array(Array(Int32))).map(&.+ [real_target])
+              newly_added << real_target
+            elsif newly_added.includes? (real_target)
+
+              paths[real_target].as(Array(Array(Int32))).concat(paths[t].as(Array(Array(Int32))).map(&.+ [real_target]))
+            end
+          end
+        end
+      end
+
+      paths
+    end
+
     def nodes
       @edges.keys
     end
@@ -176,18 +212,24 @@ module Graph
       graph
     end
 
-    def self.from_metis_file(filename : String) : DefaultGraph
+    def self.from_metis_file(filename : String, starts_index_from_1 : Bool = false) : DefaultGraph
       content = File.read(filename)
       lines = content.strip.split '\n'
 
       graph = DefaultGraph.new
 
+      lines[0].split(' ')[0].to_i.times { |i| graph.add_node(i) }
+
       lines[1..-1].each do |line|
         numbers = line.split(' ')
         source = numbers.first.to_i
-        graph.add_node source
+
         numbers[1..-1].each do |target|
-          graph.add_edge(source, target.to_i)
+          if (starts_index_from_1)
+            graph.add_edge(source - 1, target.to_i - 1)
+          else
+            graph.add_edge(source, target.to_i)
+          end
         end
       end
 

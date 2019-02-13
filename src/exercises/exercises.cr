@@ -138,26 +138,69 @@ module Exercises
   end
 
   def exercise12_4(graph : AGraph)
-    # TODO
+    number_of_nodes = graph.nodes.size
+
+    mapped_to_labels = {} of Int32 => String
+
+    # File.each_line("./output/11_4_labels") do |line|
+    File.each_line("./test-data/rib/rib.20190121.dict") do |line|
+      whole_string, index, label = line.match(/(\d+), ?"(.*)"/).as(Regex::MatchData)
+
+      # mapped_to_labels[index.to_i] = label
+      mapped_to_labels[index.to_i - 1] = label
+    end
+
+    puts "got #{mapped_to_labels.size} labels"
+
+    betweenness = Array(Float64).new(number_of_nodes, 0)
+    puts betweenness.size
+
+    number_of_nodes.times do |s|
+      puts s if s % 500 == 0
+
+      all_shortest_paths = graph.shortest_paths(s)
+
+      number_of_nodes.times do |t|
+        next if s == t
+
+        next if all_shortest_paths[t].nil?
+
+        all_shortest_paths_for_t = all_shortest_paths[t].as(Array(Array(Int32)))
+
+        total_number_of_paths = all_shortest_paths_for_t.size
+
+        all_shortest_paths_for_t.each do |shortest|
+          shortest.each do |node|
+            next if node == s || node == t
+            betweenness[node] += 1_f64 / total_number_of_paths
+          end
+        end
+      end
+    end
+
+    puts "got betweenness"
+    top20 = (0...graph.nodes.size).to_a.sort_by! { |i| betweenness[i] } .last(20).reverse!
+
+    top20.map { |i| "#{mapped_to_labels[i]} --- #{betweenness[i]}" }.join "\n"
   end
 
-  def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false, metis : Bool = false) : AGraph
+  def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false, metis : Bool = false, starts_index_from_1 : Bool = false) : AGraph
     raise ArgumentError.new if filename.nil?
     if n_tuples
       RDF_Graph.from_filename(filename, gzipped)
     elsif metis
-      DefaultGraph.from_metis_file(filename)
+      DefaultGraph.from_metis_file(filename, starts_index_from_1)
     else
       DefaultGraph.from_filename(filename, gzipped)
     end
   end
 
-  def run(exercise : String?, filename : String?, gzipped : Bool, n_tuples : Bool, metis : Bool)
+  def run(exercise : String?, filename : String?, gzipped : Bool, n_tuples : Bool, metis : Bool, starts_index_from_1 : Bool)
     {% begin %}
       case exercise
       {% for e in EXERCISES_USING_LOCAL_FILE %}
         when {{e}}
-          puts exercise{{e.id}} create_graph(filename, gzipped, n_tuples, metis)
+          puts exercise{{e.id}} create_graph(filename, gzipped, n_tuples, metis, starts_index_from_1)
       {% end %}
       {% for e in EXERCISES_CRAWLING_WEB %}
         when {{e}}
