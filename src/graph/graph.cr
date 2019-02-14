@@ -4,6 +4,8 @@ module Graph
   abstract class AGraph
     getter edges
 
+    abstract def clone
+
     def initialize
       @edges = {} of Int32 => Array(Int32)
     end
@@ -50,6 +52,101 @@ module Graph
       end
 
       paths
+    end
+
+    def node_betweenness : Array(Float64)
+      betweenness(false).as(Array(Float64))
+    end
+
+    def edge_betweenness : Hash(Tuple(Int32, Int32), Float64)
+      betweenness(true).as(Hash(Tuple(Int32, Int32), Float64))
+    end
+
+    private def betweenness(for_edges? : Bool) : Array(Float64) | Hash(Tuple(Int32, Int32), Float64)
+      betweenness = for_edges? ?
+        Hash(Tuple(Int32, Int32), Float64).new(0) :
+        Array(Float64).new(number_of_nodes, 0)
+
+      number_of_nodes.times do |s|
+        all_shortest_paths = shortest_paths(s)
+
+        number_of_nodes.times do |t|
+          next if s == t && !for_edges?
+
+          next if all_shortest_paths[t].nil?
+
+          all_shortest_paths_for_t = all_shortest_paths[t].as(Array(Array(Int32)))
+
+          total_number_of_paths = all_shortest_paths_for_t.size
+
+          node_before = nil
+          all_shortest_paths_for_t.each do |shortest|
+            shortest.each do |node|
+              if for_edges?
+                unless node == s || node_before.nil?
+                  betweenness.as(Hash(Tuple(Int32, Int32), Float64))[{node_before, node}] += 1_f64 / total_number_of_paths
+                end
+                node_before = node
+              else
+                next if node == s || node == t
+                betweenness.as(Array(Float64))[node] += 1_f64 / total_number_of_paths
+              end
+            end
+          end
+        end
+      end
+
+      betweenness
+    end
+
+    def communities : Array(Array(Int32))
+      coms = [] of Array(Int32)
+
+      nodes_left = nodes
+      while nodes_left.size > 0
+        next_node = nodes_left.shift
+        neighbors = [next_node]
+
+        neighbor_size_before = 0
+
+        while neighbor_size_before < neighbors.size
+          neighbor_size_before = neighbors.size
+          i_point_at = [] of Int32
+          point_at_me = [] of Int32
+
+          neighbors.each do |neighbor|
+            i_point_at.concat(edges[neighbor])
+            point_at_me.concat(nodes_left.select { |n| edges[n].includes? neighbor })
+          end
+
+          neighbors.concat(i_point_at).concat(point_at_me).uniq!
+          nodes_left -= neighbors
+        end
+
+        coms << neighbors
+      end
+
+      coms
+    end
+
+    def girvan_newman(level : Int32) : Array(Array(Int32))
+      cloned = clone
+
+      current_coms = cloned.communities
+      puts current_coms.size
+
+      size_at_beginning = current_coms.size
+
+      while (current_coms.size - size_at_beginning < level && cloned.number_of_edges > 0)
+        source, target = cloned.edge_betweenness.max_by(&.last).first
+        cloned.@edges[source].delete(target)
+
+        current_coms = cloned.communities
+      end
+
+      puts current_coms.size
+
+      current_coms
     end
 
     def nodes
@@ -191,6 +288,8 @@ module Graph
   end
 
   class DefaultGraph < AGraph
+    def_clone
+
     def self.from_filename(filename : String, gzipped : Bool) : DefaultGraph
       if gzipped
         content = Gzip::Reader.open(filename) { |gzip_file| gzip_file.gets_to_end }
@@ -238,6 +337,8 @@ module Graph
   end
 
   class RDF_Graph < AGraph
+    def_clone
+
     def initialize
       super
       @next_number = 0

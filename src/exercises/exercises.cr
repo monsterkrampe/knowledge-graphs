@@ -9,7 +9,7 @@ module Exercises
   extend self
   include Graph
   include Linear_Algebra
-  EXERCISES_USING_LOCAL_FILE = ["0", "1_2", "1_3", "2_2", "2_3", "4_5", "12_3", "12_4"]
+  EXERCISES_USING_LOCAL_FILE = ["0", "1_2", "1_3", "2_2", "2_3", "4_5", "12_3", "12_4", "13_4"]
   EXERCISES_CRAWLING_WEB = ["3_4", "11_4"]
 
   def exercise0(graph : AGraph)
@@ -60,12 +60,19 @@ module Exercises
 
   def exercise11_4
     # query participants of any tournaments and corresponding winners
-    query = "SELECT ?p ?pLabel ?w ?wLabel WHERE {
-      ?t ^wdt:P1344 ?p ;
-        ^wdt:P2522 ?w ;
-        wdt:P361*/wdt:P31 wd:Q19317 .
+    # query = "SELECT ?p ?pLabel ?w ?wLabel WHERE {
+    #   ?t ^wdt:P1344 ?p ;
+    #     ^wdt:P2522 ?w ;
+    #     wdt:P361*/wdt:P31 wd:Q19317 .
 
-      FILTER(?p != ?w)
+    #   FILTER(?p != ?w)
+
+    #   SERVICE wikibase:label { bd:serviceParam wikibase:language \"[AUTO_LANGUAGE],en\". }
+    # }"
+
+    query = "SELECT ?w ?wLabel ?p ?pLabel WHERE {
+      ?w wdt:P375 ?p;
+        wdt:P619 [] .
 
       SERVICE wikibase:label { bd:serviceParam wikibase:language \"[AUTO_LANGUAGE],en\". }
     }"
@@ -138,8 +145,6 @@ module Exercises
   end
 
   def exercise12_4(graph : AGraph)
-    number_of_nodes = graph.nodes.size
-
     mapped_to_labels = {} of Int32 => String
 
     # File.each_line("./output/11_4_labels") do |line|
@@ -152,36 +157,30 @@ module Exercises
 
     puts "got #{mapped_to_labels.size} labels"
 
-    betweenness = Array(Float64).new(number_of_nodes, 0)
-    puts betweenness.size
-
-    number_of_nodes.times do |s|
-      puts s if s % 500 == 0
-
-      all_shortest_paths = graph.shortest_paths(s)
-
-      number_of_nodes.times do |t|
-        next if s == t
-
-        next if all_shortest_paths[t].nil?
-
-        all_shortest_paths_for_t = all_shortest_paths[t].as(Array(Array(Int32)))
-
-        total_number_of_paths = all_shortest_paths_for_t.size
-
-        all_shortest_paths_for_t.each do |shortest|
-          shortest.each do |node|
-            next if node == s || node == t
-            betweenness[node] += 1_f64 / total_number_of_paths
-          end
-        end
-      end
-    end
+    betweenness = graph.node_betweenness
 
     puts "got betweenness"
     top20 = (0...graph.nodes.size).to_a.sort_by! { |i| betweenness[i] } .last(20).reverse!
 
     top20.map { |i| "#{mapped_to_labels[i]} --- #{betweenness[i]}" }.join "\n"
+  end
+
+  def exercise13_4(graph : AGraph)
+    mapped_to_labels = {} of Int32 => String
+
+    File.each_line("./output/11_4_labels") do |line|
+      whole_string, index, label = line.match(/(\d+), ?"(.*)"/).as(Regex::MatchData)
+
+      mapped_to_labels[index.to_i] = label
+    end
+
+    puts "got #{mapped_to_labels.size} labels"
+
+    graph.girvan_newman(5).map do |com|
+      mapped_com = com[0..5].map{ |i| mapped_to_labels[i] }
+      mapped_com << "..." if com.size > 6
+      mapped_com.join ", "
+    end.join "\n"
   end
 
   def create_graph(filename : String?, gzipped : Bool = false, n_tuples : Bool = false, metis : Bool = false, starts_index_from_1 : Bool = false) : AGraph
